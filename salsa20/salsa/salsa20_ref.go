@@ -4,228 +4,213 @@
 
 package salsa
 
+import (
+	"encoding/binary"
+	"math/bits"
+)
+
 const rounds = 20
 
-// core applies the Salsa20 core function to 16-byte input in, 32-byte key k,
-// and 16-byte constant c, and puts the result into 64-byte array out.
-func core(out *[64]byte, in *[16]byte, k *[32]byte, c *[16]byte) {
-	j0 := uint32(c[0]) | uint32(c[1])<<8 | uint32(c[2])<<16 | uint32(c[3])<<24
-	j1 := uint32(k[0]) | uint32(k[1])<<8 | uint32(k[2])<<16 | uint32(k[3])<<24
-	j2 := uint32(k[4]) | uint32(k[5])<<8 | uint32(k[6])<<16 | uint32(k[7])<<24
-	j3 := uint32(k[8]) | uint32(k[9])<<8 | uint32(k[10])<<16 | uint32(k[11])<<24
-	j4 := uint32(k[12]) | uint32(k[13])<<8 | uint32(k[14])<<16 | uint32(k[15])<<24
-	j5 := uint32(c[4]) | uint32(c[5])<<8 | uint32(c[6])<<16 | uint32(c[7])<<24
-	j6 := uint32(in[0]) | uint32(in[1])<<8 | uint32(in[2])<<16 | uint32(in[3])<<24
-	j7 := uint32(in[4]) | uint32(in[5])<<8 | uint32(in[6])<<16 | uint32(in[7])<<24
-	j8 := uint32(in[8]) | uint32(in[9])<<8 | uint32(in[10])<<16 | uint32(in[11])<<24
-	j9 := uint32(in[12]) | uint32(in[13])<<8 | uint32(in[14])<<16 | uint32(in[15])<<24
-	j10 := uint32(c[8]) | uint32(c[9])<<8 | uint32(c[10])<<16 | uint32(c[11])<<24
-	j11 := uint32(k[16]) | uint32(k[17])<<8 | uint32(k[18])<<16 | uint32(k[19])<<24
-	j12 := uint32(k[20]) | uint32(k[21])<<8 | uint32(k[22])<<16 | uint32(k[23])<<24
-	j13 := uint32(k[24]) | uint32(k[25])<<8 | uint32(k[26])<<16 | uint32(k[27])<<24
-	j14 := uint32(k[28]) | uint32(k[29])<<8 | uint32(k[30])<<16 | uint32(k[31])<<24
-	j15 := uint32(c[12]) | uint32(c[13])<<8 | uint32(c[14])<<16 | uint32(c[15])<<24
+func quarterRound(a, b, c, d uint32) (uint32, uint32, uint32, uint32) {
+	b ^= bits.RotateLeft32(a+d, 7)
+	c ^= bits.RotateLeft32(b+a, 9)
+	d ^= bits.RotateLeft32(c+b, 13)
+	a ^= bits.RotateLeft32(d+c, 18)
+	return a, b, c, d
+}
 
-	x0, x1, x2, x3, x4, x5, x6, x7, x8 := j0, j1, j2, j3, j4, j5, j6, j7, j8
-	x9, x10, x11, x12, x13, x14, x15 := j9, j10, j11, j12, j13, j14, j15
+const (
+	j0 uint32 = 0x61707865 // expa
+	j1 uint32 = 0x3320646e // nd 3
+	j2 uint32 = 0x79622d32 // 2-by
+	j3 uint32 = 0x6b206574 // te k
+)
 
-	for i := 0; i < rounds; i += 2 {
-		u := x0 + x12
-		x4 ^= u<<7 | u>>(32-7)
-		u = x4 + x0
-		x8 ^= u<<9 | u>>(32-9)
-		u = x8 + x4
-		x12 ^= u<<13 | u>>(32-13)
-		u = x12 + x8
-		x0 ^= u<<18 | u>>(32-18)
+func keyStreamBlock(dst *[64]byte, nonce *[16]byte, key *[32]byte) {
+	k0 := binary.LittleEndian.Uint32(key[0:4])
+	k1 := binary.LittleEndian.Uint32(key[4:8])
+	k2 := binary.LittleEndian.Uint32(key[8:12])
+	k3 := binary.LittleEndian.Uint32(key[12:16])
+	k4 := binary.LittleEndian.Uint32(key[16:20])
+	k5 := binary.LittleEndian.Uint32(key[20:24])
+	k6 := binary.LittleEndian.Uint32(key[24:28])
+	k7 := binary.LittleEndian.Uint32(key[28:32])
 
-		u = x5 + x1
-		x9 ^= u<<7 | u>>(32-7)
-		u = x9 + x5
-		x13 ^= u<<9 | u>>(32-9)
-		u = x13 + x9
-		x1 ^= u<<13 | u>>(32-13)
-		u = x1 + x13
-		x5 ^= u<<18 | u>>(32-18)
+	n0 := binary.LittleEndian.Uint32(nonce[0:4])
+	n1 := binary.LittleEndian.Uint32(nonce[4:8])
 
-		u = x10 + x6
-		x14 ^= u<<7 | u>>(32-7)
-		u = x14 + x10
-		x2 ^= u<<9 | u>>(32-9)
-		u = x2 + x14
-		x6 ^= u<<13 | u>>(32-13)
-		u = x6 + x2
-		x10 ^= u<<18 | u>>(32-18)
+	ctrLo := binary.LittleEndian.Uint32(nonce[8:12])
+	ctrHi := binary.LittleEndian.Uint32(nonce[12:16])
 
-		u = x15 + x11
-		x3 ^= u<<7 | u>>(32-7)
-		u = x3 + x15
-		x7 ^= u<<9 | u>>(32-9)
-		u = x7 + x3
-		x11 ^= u<<13 | u>>(32-13)
-		u = x11 + x7
-		x15 ^= u<<18 | u>>(32-18)
+	var (
+		c0, c1, c2, c3     = j0, k0, k1, k2
+		c4, c5, c6, c7     = k3, j1, n0, n1
+		c10, c11           = j2, k4
+		c12, c13, c14, c15 = k5, k6, k7, j3
+	)
 
-		u = x0 + x3
-		x1 ^= u<<7 | u>>(32-7)
-		u = x1 + x0
-		x2 ^= u<<9 | u>>(32-9)
-		u = x2 + x1
-		x3 ^= u<<13 | u>>(32-13)
-		u = x3 + x2
-		x0 ^= u<<18 | u>>(32-18)
+	x10, x14, x2, x6 := quarterRound(c10, c14, c2, c6)
+	x15, x3, x7, x11 := quarterRound(c15, c3, c7, c11)
+	x5, x9, x13, x1 := quarterRound(c5, ctrHi, c13, c1)
+	x0, x4, x8, x12 := quarterRound(c0, c4, ctrLo, c12)
 
-		u = x5 + x4
-		x6 ^= u<<7 | u>>(32-7)
-		u = x6 + x5
-		x7 ^= u<<9 | u>>(32-9)
-		u = x7 + x6
-		x4 ^= u<<13 | u>>(32-13)
-		u = x4 + x7
-		x5 ^= u<<18 | u>>(32-18)
+	x0, x1, x2, x3 = quarterRound(x0, x1, x2, x3)
+	x5, x6, x7, x4 = quarterRound(x5, x6, x7, x4)
+	x10, x11, x8, x9 = quarterRound(x10, x11, x8, x9)
+	x15, x12, x13, x14 = quarterRound(x15, x12, x13, x14)
 
-		u = x10 + x9
-		x11 ^= u<<7 | u>>(32-7)
-		u = x11 + x10
-		x8 ^= u<<9 | u>>(32-9)
-		u = x8 + x11
-		x9 ^= u<<13 | u>>(32-13)
-		u = x9 + x8
-		x10 ^= u<<18 | u>>(32-18)
+	// remaining 18 rounds
+	for i := 0; i < rounds-2; i += 2 {
+		// Odd round
+		x0, x4, x8, x12 = quarterRound(x0, x4, x8, x12)
+		x5, x9, x13, x1 = quarterRound(x5, x9, x13, x1)
+		x10, x14, x2, x6 = quarterRound(x10, x14, x2, x6)
+		x15, x3, x7, x11 = quarterRound(x15, x3, x7, x11)
 
-		u = x15 + x14
-		x12 ^= u<<7 | u>>(32-7)
-		u = x12 + x15
-		x13 ^= u<<9 | u>>(32-9)
-		u = x13 + x12
-		x14 ^= u<<13 | u>>(32-13)
-		u = x14 + x13
-		x15 ^= u<<18 | u>>(32-18)
+		// Even round
+		x0, x1, x2, x3 = quarterRound(x0, x1, x2, x3)
+		x5, x6, x7, x4 = quarterRound(x5, x6, x7, x4)
+		x10, x11, x8, x9 = quarterRound(x10, x11, x8, x9)
+		x15, x12, x13, x14 = quarterRound(x15, x12, x13, x14)
 	}
-	x0 += j0
-	x1 += j1
-	x2 += j2
-	x3 += j3
-	x4 += j4
-	x5 += j5
-	x6 += j6
-	x7 += j7
-	x8 += j8
-	x9 += j9
-	x10 += j10
-	x11 += j11
-	x12 += j12
-	x13 += j13
-	x14 += j14
-	x15 += j15
 
-	out[0] = byte(x0)
-	out[1] = byte(x0 >> 8)
-	out[2] = byte(x0 >> 16)
-	out[3] = byte(x0 >> 24)
+	binary.LittleEndian.PutUint32(dst[0:4], x0+c0)
+	binary.LittleEndian.PutUint32(dst[4:8], x1+c1)
+	binary.LittleEndian.PutUint32(dst[8:12], x2+c2)
+	binary.LittleEndian.PutUint32(dst[12:16], x3+c3)
+	binary.LittleEndian.PutUint32(dst[16:20], x4+c4)
+	binary.LittleEndian.PutUint32(dst[20:24], x5+c5)
+	binary.LittleEndian.PutUint32(dst[24:28], x6+c6)
+	binary.LittleEndian.PutUint32(dst[28:32], x7+c7)
+	binary.LittleEndian.PutUint32(dst[32:36], x8+ctrLo)
+	binary.LittleEndian.PutUint32(dst[36:40], x9+ctrHi)
+	binary.LittleEndian.PutUint32(dst[40:44], x10+c10)
+	binary.LittleEndian.PutUint32(dst[44:48], x11+c11)
+	binary.LittleEndian.PutUint32(dst[48:52], x12+c12)
+	binary.LittleEndian.PutUint32(dst[52:56], x13+c13)
+	binary.LittleEndian.PutUint32(dst[56:60], x14+c14)
+	binary.LittleEndian.PutUint32(dst[60:64], x15+c15)
+}
 
-	out[4] = byte(x1)
-	out[5] = byte(x1 >> 8)
-	out[6] = byte(x1 >> 16)
-	out[7] = byte(x1 >> 24)
+// xorKeyStreamBlocksGeneric encrypts all full blocks in src and writes to dst
+// it leaves residual bytes that don't make up a full block untouched
+func xorKeyStreamBlocksGeneric(dst, src []byte, nonce *[16]byte, key *[32]byte) {
+	k0 := binary.LittleEndian.Uint32(key[0:4])
+	k1 := binary.LittleEndian.Uint32(key[4:8])
+	k2 := binary.LittleEndian.Uint32(key[8:12])
+	k3 := binary.LittleEndian.Uint32(key[12:16])
+	k4 := binary.LittleEndian.Uint32(key[16:20])
+	k5 := binary.LittleEndian.Uint32(key[20:24])
+	k6 := binary.LittleEndian.Uint32(key[24:28])
+	k7 := binary.LittleEndian.Uint32(key[28:32])
 
-	out[8] = byte(x2)
-	out[9] = byte(x2 >> 8)
-	out[10] = byte(x2 >> 16)
-	out[11] = byte(x2 >> 24)
+	n0 := binary.LittleEndian.Uint32(nonce[0:4])
+	n1 := binary.LittleEndian.Uint32(nonce[4:8])
 
-	out[12] = byte(x3)
-	out[13] = byte(x3 >> 8)
-	out[14] = byte(x3 >> 16)
-	out[15] = byte(x3 >> 24)
+	ctrLo := binary.LittleEndian.Uint32(nonce[8:12])
+	ctrHi := binary.LittleEndian.Uint32(nonce[12:16])
 
-	out[16] = byte(x4)
-	out[17] = byte(x4 >> 8)
-	out[18] = byte(x4 >> 16)
-	out[19] = byte(x4 >> 24)
+	var (
+		c0, c1, c2, c3     = j0, k0, k1, k2
+		c4, c5, c6, c7     = k3, j1, n0, n1
+		c10, c11           = j2, k4
+		c12, c13, c14, c15 = k5, k6, k7, j3
+	)
 
-	out[20] = byte(x5)
-	out[21] = byte(x5 >> 8)
-	out[22] = byte(x5 >> 16)
-	out[23] = byte(x5 >> 24)
+	// In the first round, there are two quarter rounds that remain
+	// constant for all blocks.
+	fr10, fr14, fr2, fr6 := quarterRound(c10, c14, c2, c6)
+	fr15, fr3, fr7, fr11 := quarterRound(c15, c3, c7, c11)
+	// The quarter round in first round involving the high 32 bits of the counter only
+	// needs to be done when ctrHi increments, which doesn't happen for every block
+	fr5, fr9, fr13, fr1 := quarterRound(c5, ctrHi, c13, c1)
+	for len(src) >= 64 && len(dst) >= 64 { // check dst length to eliminate bounds check later in xor
+		// This quarter round in first round needs to be recalculated for every block as it depends
+		// on the low 32 bits of the counter
+		fr0, fr4, fr8, fr12 := quarterRound(c0, c4, ctrLo, c12)
 
-	out[24] = byte(x6)
-	out[25] = byte(x6 >> 8)
-	out[26] = byte(x6 >> 16)
-	out[27] = byte(x6 >> 24)
+		// Second round
+		x0, x1, x2, x3 := quarterRound(fr0, fr1, fr2, fr3)
+		x5, x6, x7, x4 := quarterRound(fr5, fr6, fr7, fr4)
+		x10, x11, x8, x9 := quarterRound(fr10, fr11, fr8, fr9)
+		x15, x12, x13, x14 := quarterRound(fr15, fr12, fr13, fr14)
 
-	out[28] = byte(x7)
-	out[29] = byte(x7 >> 8)
-	out[30] = byte(x7 >> 16)
-	out[31] = byte(x7 >> 24)
+		// remaining 18 rounds
+		for i := 0; i < rounds-2; i += 2 {
+			// Odd round
+			x0, x4, x8, x12 = quarterRound(x0, x4, x8, x12)
+			x5, x9, x13, x1 = quarterRound(x5, x9, x13, x1)
+			x10, x14, x2, x6 = quarterRound(x10, x14, x2, x6)
+			x15, x3, x7, x11 = quarterRound(x15, x3, x7, x11)
 
-	out[32] = byte(x8)
-	out[33] = byte(x8 >> 8)
-	out[34] = byte(x8 >> 16)
-	out[35] = byte(x8 >> 24)
+			// Even round
+			x0, x1, x2, x3 = quarterRound(x0, x1, x2, x3)
+			x5, x6, x7, x4 = quarterRound(x5, x6, x7, x4)
+			x10, x11, x8, x9 = quarterRound(x10, x11, x8, x9)
+			x15, x12, x13, x14 = quarterRound(x15, x12, x13, x14)
+		}
 
-	out[36] = byte(x9)
-	out[37] = byte(x9 >> 8)
-	out[38] = byte(x9 >> 16)
-	out[39] = byte(x9 >> 24)
+		// Add the initial state to get the key stream block,
+		// XOR with the source and write out the result.
+		xor(dst[0:4], src[0:4], x0+c0)
+		xor(dst[4:8], src[4:8], x1+c1)
+		xor(dst[8:12], src[8:12], x2+c2)
+		xor(dst[12:16], src[12:16], x3+c3)
+		xor(dst[16:20], src[16:20], x4+c4)
+		xor(dst[20:24], src[20:24], x5+c5)
+		xor(dst[24:28], src[24:28], x6+c6)
+		xor(dst[28:32], src[28:32], x7+c7)
+		xor(dst[32:36], src[32:36], x8+ctrLo)
+		xor(dst[36:40], src[36:40], x9+ctrHi)
+		xor(dst[40:44], src[40:44], x10+c10)
+		xor(dst[44:48], src[44:48], x11+c11)
+		xor(dst[48:52], src[48:52], x12+c12)
+		xor(dst[52:56], src[52:56], x13+c13)
+		xor(dst[56:60], src[56:60], x14+c14)
+		xor(dst[60:64], src[60:64], x15+c15)
 
-	out[40] = byte(x10)
-	out[41] = byte(x10 >> 8)
-	out[42] = byte(x10 >> 16)
-	out[43] = byte(x10 >> 24)
+		ctrLo += 1
+		if ctrLo == 0 {
+			ctrHi += 1
+			// Do the quarter round that involves the high 32 bits of the counter
+			fr5, fr9, fr13, fr1 = quarterRound(c5, ctrHi, c13, c1)
+			if ctrHi == 0 {
+				// wrap back
+				panic("salsa20: internal error: counter overflow")
+			}
+		}
+		src = src[64:]
+		dst = dst[64:]
+	}
 
-	out[44] = byte(x11)
-	out[45] = byte(x11 >> 8)
-	out[46] = byte(x11 >> 16)
-	out[47] = byte(x11 >> 24)
-
-	out[48] = byte(x12)
-	out[49] = byte(x12 >> 8)
-	out[50] = byte(x12 >> 16)
-	out[51] = byte(x12 >> 24)
-
-	out[52] = byte(x13)
-	out[53] = byte(x13 >> 8)
-	out[54] = byte(x13 >> 16)
-	out[55] = byte(x13 >> 24)
-
-	out[56] = byte(x14)
-	out[57] = byte(x14 >> 8)
-	out[58] = byte(x14 >> 16)
-	out[59] = byte(x14 >> 24)
-
-	out[60] = byte(x15)
-	out[61] = byte(x15 >> 8)
-	out[62] = byte(x15 >> 16)
-	out[63] = byte(x15 >> 24)
+	// Put the counter back after we've done all full blocks
+	binary.LittleEndian.PutUint32(nonce[8:12], ctrLo)
+	binary.LittleEndian.PutUint32(nonce[12:16], ctrHi)
+	return
 }
 
 // genericXORKeyStream is the generic implementation of XORKeyStream to be used
 // when no assembly implementation is available.
 func genericXORKeyStream(out, in []byte, counter *[16]byte, key *[32]byte) {
-	var block [64]byte
-	var counterCopy [16]byte
-	copy(counterCopy[:], counter[:])
+	if len(out) < len(in) {
+		panic("salsa20: internal error: out buffer smaller than input")
+	}
+	rem := len(in) % 64
+	full := len(in) - rem
 
-	for len(in) >= 64 {
-		core(&block, &counterCopy, key, &Sigma)
-		for i, x := range block {
-			out[i] = in[i] ^ x
-		}
-		u := uint32(1)
-		for i := 8; i < 16; i++ {
-			u += uint32(counterCopy[i])
-			counterCopy[i] = byte(u)
-			u >>= 8
-		}
-		in = in[64:]
-		out = out[64:]
+	if full > 0 {
+		// Encrypt all full blocks
+		xorKeyStreamBlocksGeneric(out, in, counter, key)
 	}
 
-	if len(in) > 0 {
-		core(&block, &counterCopy, key, &Sigma)
-		for i, v := range in {
-			out[i] = v ^ block[i]
+	// If there is input left that doesn't make up a full block
+	// we xor the keyStream with the input bytes individually
+	if rem > 0 && rem < 64 { // check rem < 64 here to eliminate bounds check later in the loop
+		var keyStream [64]byte
+		keyStreamBlock(&keyStream, counter, key)
+		in, out = in[full:full+rem], out[full:full+rem]
+		for i := 0; i < rem; i++ {
+			out[i] = in[i] ^ keyStream[i]
 		}
 	}
 }
