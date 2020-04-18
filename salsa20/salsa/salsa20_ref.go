@@ -26,7 +26,7 @@ const (
 	j3 uint32 = 0x6b206574 // te k
 )
 
-func keyStreamBlock(dst *[64]byte, nonce *[16]byte, key *[32]byte) {
+func keyStreamBlock(dst *[64]byte, counter *[16]byte, key *[32]byte) {
 	k0 := binary.LittleEndian.Uint32(key[0:4])
 	k1 := binary.LittleEndian.Uint32(key[4:8])
 	k2 := binary.LittleEndian.Uint32(key[8:12])
@@ -36,11 +36,11 @@ func keyStreamBlock(dst *[64]byte, nonce *[16]byte, key *[32]byte) {
 	k6 := binary.LittleEndian.Uint32(key[24:28])
 	k7 := binary.LittleEndian.Uint32(key[28:32])
 
-	n0 := binary.LittleEndian.Uint32(nonce[0:4])
-	n1 := binary.LittleEndian.Uint32(nonce[4:8])
+	n0 := binary.LittleEndian.Uint32(counter[0:4])
+	n1 := binary.LittleEndian.Uint32(counter[4:8])
 
-	ctrLo := binary.LittleEndian.Uint32(nonce[8:12])
-	ctrHi := binary.LittleEndian.Uint32(nonce[12:16])
+	ctrLo := binary.LittleEndian.Uint32(counter[8:12])
+	ctrHi := binary.LittleEndian.Uint32(counter[12:16])
 
 	var (
 		c0, c1, c2, c3     = j0, k0, k1, k2
@@ -94,7 +94,7 @@ func keyStreamBlock(dst *[64]byte, nonce *[16]byte, key *[32]byte) {
 
 // xorKeyStreamBlocksGeneric encrypts all full blocks in src and writes to dst
 // it leaves residual bytes that don't make up a full block untouched
-func xorKeyStreamBlocksGeneric(dst, src []byte, nonce *[16]byte, key *[32]byte) {
+func xorKeyStreamBlocksGeneric(dst, src []byte, counter *[16]byte, key *[32]byte) {
 	k0 := binary.LittleEndian.Uint32(key[0:4])
 	k1 := binary.LittleEndian.Uint32(key[4:8])
 	k2 := binary.LittleEndian.Uint32(key[8:12])
@@ -104,11 +104,11 @@ func xorKeyStreamBlocksGeneric(dst, src []byte, nonce *[16]byte, key *[32]byte) 
 	k6 := binary.LittleEndian.Uint32(key[24:28])
 	k7 := binary.LittleEndian.Uint32(key[28:32])
 
-	n0 := binary.LittleEndian.Uint32(nonce[0:4])
-	n1 := binary.LittleEndian.Uint32(nonce[4:8])
+	n0 := binary.LittleEndian.Uint32(counter[0:4])
+	n1 := binary.LittleEndian.Uint32(counter[4:8])
 
-	ctrLo := binary.LittleEndian.Uint32(nonce[8:12])
-	ctrHi := binary.LittleEndian.Uint32(nonce[12:16])
+	ctrLo := binary.LittleEndian.Uint32(counter[8:12])
+	ctrHi := binary.LittleEndian.Uint32(counter[12:16])
 
 	var (
 		c0, c1, c2, c3     = j0, k0, k1, k2
@@ -184,8 +184,8 @@ func xorKeyStreamBlocksGeneric(dst, src []byte, nonce *[16]byte, key *[32]byte) 
 	}
 
 	// Put the counter back after we've done all full blocks
-	binary.LittleEndian.PutUint32(nonce[8:12], ctrLo)
-	binary.LittleEndian.PutUint32(nonce[12:16], ctrHi)
+	binary.LittleEndian.PutUint32(counter[8:12], ctrLo)
+	binary.LittleEndian.PutUint32(counter[12:16], ctrHi)
 	return
 }
 
