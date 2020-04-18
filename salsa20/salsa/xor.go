@@ -14,8 +14,8 @@ const unaligned = runtime.GOARCH == "386" ||
 
 // addXor reads a little endian uint32 from src, XORs it with u + a and
 // places the result in little endian byte order in dst.
-func addXor(dst, src []byte, u uint32, a uint32) {
-	_, _ = src[3], dst[3] // eliminate bounds checks
+func addXor(dst, src []byte, a uint32, b uint32) {
+	_, _ = src[3], dst[3] // bounds check elimination hint
 	if unaligned {
 		// The compiler should optimize this code into
 		// 32-bit unaligned little endian loads and stores.
@@ -26,16 +26,16 @@ func addXor(dst, src []byte, u uint32, a uint32) {
 		v |= uint32(src[1]) << 8
 		v |= uint32(src[2]) << 16
 		v |= uint32(src[3]) << 24
-		v ^= u + a
+		v ^= a + b
 		dst[0] = byte(v)
 		dst[1] = byte(v >> 8)
 		dst[2] = byte(v >> 16)
 		dst[3] = byte(v >> 24)
 	} else {
-		s := u + a
-		dst[0] = src[0] ^ byte(s)
-		dst[1] = src[1] ^ byte(s>>8)
-		dst[2] = src[2] ^ byte(s>>16)
-		dst[3] = src[3] ^ byte(s>>24)
+		a += b
+		dst[0] = src[0] ^ byte(a)
+		dst[1] = src[1] ^ byte(a>>8)
+		dst[2] = src[2] ^ byte(a>>16)
+		dst[3] = src[3] ^ byte(a>>24)
 	}
 }
