@@ -128,6 +128,43 @@ var (
 	msg      = make([]byte, 1<<10)
 )
 
+func benchmarkSalsa20(b *testing.B, step, count int) {
+	tot := step * count
+	src := make([]byte, tot)
+	dst := make([]byte, tot)
+	b.SetBytes(int64(tot))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < tot; i += step {
+			XORKeyStream(dst[i:], src[i:i+step], nonce[:], key)
+		}
+	}
+}
+
+func BenchmarkSalsa20(b *testing.B) {
+	b.Run("64", func(b *testing.B) {
+		benchmarkSalsa20(b, 64, 1)
+	})
+	b.Run("256", func(b *testing.B) {
+		benchmarkSalsa20(b, 256, 1)
+	})
+	b.Run("10x25", func(b *testing.B) {
+		benchmarkSalsa20(b, 10, 25)
+	})
+	b.Run("4096", func(b *testing.B) {
+		benchmarkSalsa20(b, 256, 1)
+	})
+	b.Run("100x40", func(b *testing.B) {
+		benchmarkSalsa20(b, 100, 40)
+	})
+	b.Run("65536", func(b *testing.B) {
+		benchmarkSalsa20(b, 65536, 1)
+	})
+	b.Run("1000x65", func(b *testing.B) {
+		benchmarkSalsa20(b, 1000, 65)
+	})
+}
+
 func BenchmarkXOR1K(b *testing.B) {
 	b.StopTimer()
 	out := make([]byte, 1024)
