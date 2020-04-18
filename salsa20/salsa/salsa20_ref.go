@@ -197,17 +197,19 @@ func genericXORKeyStream(out, in []byte, counter *[16]byte, key *[32]byte) {
 	}
 	rem := len(in) % 64
 	full := len(in) - rem
+	var counterCopy [16]byte
+	copy(counterCopy[:], counter[:])
 
 	if full > 0 {
 		// Encrypt all full blocks
-		xorKeyStreamBlocksGeneric(out, in, counter, key)
+		xorKeyStreamBlocksGeneric(out, in, &counterCopy, key)
 	}
 
 	// If there is input left that doesn't make up a full block
 	// we xor the keyStream with the input bytes individually
 	if rem > 0 && rem < 64 { // check rem < 64 here to eliminate bounds check later in the loop
 		var keyStream [64]byte
-		keyStreamBlock(&keyStream, counter, key)
+		keyStreamBlock(&keyStream, &counterCopy, key)
 		in, out = in[full:full+rem], out[full:full+rem]
 		for i := 0; i < rem; i++ {
 			out[i] = in[i] ^ keyStream[i]
